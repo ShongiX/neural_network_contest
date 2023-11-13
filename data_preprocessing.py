@@ -1,10 +1,12 @@
 import os
 import numpy as np
+import torch
 from matplotlib import image as mpimg
 from monai.transforms import ScaleIntensity, RandFlip, RandRotate, RandZoom
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from torchvision.transforms import ToTensor
+import matplotlib.pyplot as plt
 
 
 class CompetitionDataset(Dataset):
@@ -24,13 +26,14 @@ class CompetitionDataset(Dataset):
         tiff_image = np.array(mpimg.imread(os.path.join(self.img_dir, f"{label}.tiff"))).astype(np.float32)
         input_image = np.stack((tiff_image, bmp_image), axis=-1)
         input_image = input_image.reshape(2, 128, 128)
-        input_image = transforms.Compose([
-            ToTensor(),
-            ScaleIntensity(),
-            RandFlip(prob=0.5),
-            RandRotate(range_x=np.pi / 8, prob=0.5),
-            RandZoom(min_zoom=0.9, max_zoom=1.1)
-        ])(input_image)
+        # input_image = transforms.Compose([
+        #     ToTensor(),
+        #     ScaleIntensity(),
+        #     RandFlip(prob=0.5),
+        #     RandRotate(range_x=np.pi / 8, prob=0.5),
+        #     RandZoom(min_zoom=0.9, max_zoom=1.1)
+        # ])(input_image)
+        input_image = torch.Tensor(input_image)
 
         if self.test:
             return input_image
@@ -39,9 +42,10 @@ class CompetitionDataset(Dataset):
         if target_image.shape == (128, 128, 4):
             target_image = target_image[:, :, :3]
         target_image = target_image.reshape(3, 128, 128)
-        target_image = transforms.Compose([
-            ToTensor()
-        ])(target_image)
+        target_image = torch.Tensor(target_image)
+
+        input_image = input_image.reshape(2, 128, 128)
+        target_image = target_image.reshape(3, 128, 128)
 
         return input_image, target_image
 
@@ -52,7 +56,22 @@ def load_data():
 
     batch_size = 5
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    validate_dataloader = DataLoader(validate_dataset, batch_size=batch_size)
+    _train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    _validate_dataloader = DataLoader(validate_dataset, batch_size=batch_size)
 
-    return train_dataloader, validate_dataloader
+    return _train_dataloader, _validate_dataloader
+
+
+if __name__ == '__main__':
+    train_dataloader, validate_dataloader = load_data()
+    for i, (input, target) in enumerate(train_dataloader):
+        plot_input = input[0, :, :, :].numpy().reshape(128, 128, 2)
+        plot_target = target[0, :, :, :].numpy().reshape(128, 128, 3)
+
+        plt.subplot(1, 2, 1)
+        plt.imshow(plot_input[:, :, 0])
+        plt.subplot(1, 2, 2)
+        plt.imshow(plot_target)
+        plt.show()
+        plt.title("Sample from train dataset")
+        break

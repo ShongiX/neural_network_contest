@@ -6,6 +6,21 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 
+def create_image(output_mask):
+    output_image = np.zeros((output_mask.shape[0], output_mask.shape[1], 3))
+    for i in range(output_mask.shape[0]):
+        for j in range(output_mask.shape[1]):
+            if output_mask[i, j] == 0:
+                output_image[i, j, :] = [0, 0, 0]
+            elif output_mask[i, j] == 1:
+                output_image[i, j, :] = [1, 0, 0]
+            elif output_mask[i, j] == 2:
+                output_image[i, j, :] = [0, 1, 0]
+            elif output_mask[i, j] == 3:
+                output_image[i, j, :] = [0, 0, 1]
+    return output_image
+
+
 def create_mask(target_image):
     target_mask = np.zeros_like(target_image[0, :, :])
     for i in range(target_image.shape[1]):
@@ -50,16 +65,16 @@ class CompetitionDataset(Dataset):
             target_image = target_image[:, :, :3]
         target_image = target_image.transpose((2, 0, 1))
         target_mask = create_mask(target_image)
-        target_mask = torch.LongTensor(target_mask)
+        target_mask = torch.FloatTensor(target_mask)
 
-        return input_image, target_mask
+        return input_image.float(), target_mask.float()
 
 
 def load_data():
     train_dataset = CompetitionDataset(img_dir='train_data', test=False)
     validate_dataset = CompetitionDataset(img_dir='validate_data', test=False)
 
-    batch_size = 20
+    batch_size = 5
 
     _train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     _validate_dataloader = DataLoader(validate_dataset, batch_size=batch_size)

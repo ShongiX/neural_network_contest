@@ -65,9 +65,9 @@ class CompetitionDataset(Dataset):
             target_image = target_image[:, :, :3]
         target_image = target_image.transpose((2, 0, 1))
         target_mask = create_mask(target_image)
-        target_mask = torch.FloatTensor(target_mask)
+        target_mask = torch.Tensor(target_mask)
 
-        return input_image.float(), target_mask.float()
+        return input_image, target_mask.long()
 
 
 def load_data():

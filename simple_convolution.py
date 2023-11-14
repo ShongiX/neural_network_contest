@@ -17,6 +17,5 @@ class SimpleConvolutionalNetwork(nn.Module):
         x = self.conv2(x)
         x = F.relu(x)
         x = self.conv3(x)
-        return torch.argmax(x, dim=1).float()
-
+        return x
 

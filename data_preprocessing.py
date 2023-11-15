@@ -36,11 +36,21 @@ def create_mask(target_image):
     return target_mask
 
 
+def get_class_index(class_name):
+    if class_name == 'fonalas':
+        return 0
+    elif class_name == 'sco':
+        return 1
+    elif class_name == 'trc':
+        return 2
+
+
 class CompetitionDataset(Dataset):
-    def __init__(self, img_dir, test=False):
+    def __init__(self, img_dir, test=False, classify=False):
         self.img_dir = img_dir
         self.image_files = [f for f in os.listdir(img_dir) if f.endswith('.bmp')]
         self.test = test
+        self.classify = classify
 
     def __len__(self):
         return len(self.image_files)
@@ -57,8 +67,12 @@ class CompetitionDataset(Dataset):
         input_image = input_image.transpose((2, 0, 1))
         input_image = torch.FloatTensor(input_image)
 
-        if self.test:
-            return input_image
+        if self.test and not self.classify:
+            return input_image, label+'_target'
+
+        if self.classify:
+            label2 = label.split('_')[0]
+            return input_image, get_class_index(label2), label+'_target'
 
         target_image = np.array(Image.open(os.path.join(self.img_dir, f"{label}_target.png"))).astype(np.float32)
         if target_image.shape == (128, 128, 4):

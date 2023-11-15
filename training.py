@@ -3,7 +3,8 @@ import time
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from monai.networks.nets import UNet
+from monai.metrics import DiceMetric
+from monai.networks.nets import UNet, BasicUNetPlusPlus
 from torch import nn
 
 from data_preprocessing import load_data, create_image
@@ -16,7 +17,7 @@ def train(train_dataloader, model, optimizer, loss_fn, device):
         input = input.to(device)
         target = target.to(device)
 
-        output = model(input)
+        output = model(input)[0]
 
         loss = loss_fn(output, target)
         optimizer.zero_grad()
@@ -35,17 +36,22 @@ def train(train_dataloader, model, optimizer, loss_fn, device):
 def validate(validation_dataloader, model, loss_fn, device):
     validation_loss = 0
 
+    dice_metric = DiceMetric(include_background=False, reduction="mean")
+
     with torch.no_grad():
         for batch, (input, target) in enumerate(validation_dataloader):
             input = input.to(device)
             target = target.to(device)
 
-            output = model(input)
+            output = model(input)[0]
 
             loss = loss_fn(output, target)
             validation_loss += loss.item()
 
-    return validation_loss / len(validation_dataloader)
+            dice_metric(y_pred=output, y=target)
+
+    dice_score = dice_metric.aggregate().item()
+    return validation_loss / len(validation_dataloader), dice_score
 
 
 def format_time(seconds):
@@ -66,35 +72,44 @@ def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # model = SimpleConvolutionalNetwork().to(device)
 
-    model = UNet(
+    # model = UNet(
+    #     spatial_dims=2,
+    #     in_channels=3,
+    #     out_channels=4,
+    #     channels=[16, 32, 64, 128],
+    #     strides=[2, 2, 2],
+    #     kernel_size=3,
+    #     up_kernel_size=3,
+    #     num_res_units=2,
+    # ).to(device)
+
+    model = BasicUNetPlusPlus(
         spatial_dims=2,
         in_channels=3,
         out_channels=4,
-        channels=[16, 32, 64, 128],
-        strides=[2, 2, 2, 2],
-        kernel_size=3,
-        up_kernel_size=3,
-        num_res_units=2,
+        features=[64, 128, 256, 512, 1024, 128],
     ).to(device)
 
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-5)
 
     # Training
     epochs = args.epochs
     best_test_loss = float('inf')
     test_loss_list = []
+    dice_score_list = []
 
     for epoch in range(epochs):
         train(train_dataloader, model, optimizer, loss_fn, device)
-        test_loss = validate(validation_dataloader, model, loss_fn, device)
+        test_loss, dice_score = validate(validation_dataloader, model, loss_fn, device)
         test_loss_list.append(test_loss)
+        dice_score_list.append(dice_score)
 
         if test_loss < best_test_loss:
             best_test_loss = test_loss
-            torch.save(model.state_dict(), 'simple_model.pth')
+            torch.save(model.state_dict(), 'unetplusplus.pth')
 
-        print(f"Epoch: {epoch}, Test loss: {test_loss:>8f}")
+        print(f"Epoch: {epoch}, Test loss: {test_loss:>8f}, Dice score: {dice_score:>8f}, Elapsed time: {format_time(time.time() - start_time)}")
 
     # Plot results
     x_axis = np.linspace(0, len(test_loss_list), len(test_loss_list))
@@ -104,13 +119,19 @@ def main(args):
     plt.title('Loss vs Epochs')
     plt.show()
 
+    plt.plot(x_axis, dice_score_list)
+    plt.xlabel('Epochs')
+    plt.ylabel('Dice score')
+    plt.title('Dice score vs Epochs')
+    plt.show()
+
     print(
         f"Best test loss: {best_test_loss:>8f}, Elapsed time: {format_time(time.time() - start_time)}")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Kaggle competition.')
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train the model')
+    parser.add_argument('--epochs', type=int, default=120, help='Number of epochs to train the model')
     parser.add_argument('--train_loss', type=bool, default=True, help='Print train loss or not')
     _args = parser.parse_args()
 

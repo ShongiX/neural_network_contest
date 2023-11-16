@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import torchio as tio
 import torch
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
@@ -46,11 +47,13 @@ def get_class_index(class_name):
 
 
 class CompetitionDataset(Dataset):
-    def __init__(self, img_dir, test=False, classify=False):
+    def __init__(self, img_dir, test=False):
         self.img_dir = img_dir
         self.image_files = [f for f in os.listdir(img_dir) if f.endswith('.bmp')]
         self.test = test
-        self.classify = classify
+        self.transform = tio.Compose([
+            tio.ZNormalization(),
+        ])
 
     def __len__(self):
         return len(self.image_files)
@@ -63,16 +66,16 @@ class CompetitionDataset(Dataset):
             np.float32)
         tiff_image = np.array(Image.open(os.path.join(self.img_dir, f"{label}.tiff"))).astype(
             np.float32)
-        input_image = np.stack((tiff_image, bmp_image, np.zeros_like(tiff_image)), axis=-1)
+        input_image = np.stack((tiff_image, bmp_image), axis=-1)
         input_image = input_image.transpose((2, 0, 1))
         input_image = torch.FloatTensor(input_image)
 
-        if self.test and not self.classify:
-            return input_image, label+'_target'
+        input_image = input_image[..., np.newaxis]
+        input_image = self.transform(input_image)
+        input_image = input_image[..., 0]
 
-        if self.classify:
-            label2 = label.split('_')[0]
-            return input_image, get_class_index(label2), label+'_target'
+        if self.test:
+            return input_image, label+'_target'
 
         target_image = np.array(Image.open(os.path.join(self.img_dir, f"{label}_target.png"))).astype(np.float32)
         if target_image.shape == (128, 128, 4):
@@ -102,7 +105,7 @@ if __name__ == '__main__':
         plot_input = input[0, :, :, :].numpy().transpose((1, 2, 0))
         plot_target = target[0, :, :].numpy()
 
-        plot_input = Image.fromarray(plot_input.astype(np.uint8))
+        plot_input = Image.fromarray(plot_input[:, :, 1].astype(np.uint8))
         plot_target = Image.fromarray(plot_target.astype(np.uint8))
 
         plt.subplot(1, 2, 1)

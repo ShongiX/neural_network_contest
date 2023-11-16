@@ -11,47 +11,13 @@ from data_preprocessing import load_data, create_image
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
-def train(train_dataloader, model, optimizer, loss_fn, device):
-
-    for batch, (input, target) in enumerate(train_dataloader):
-        input = input.to(device)
-        target = target.to(device)
-
-        output = model(input)[0]
-
-        loss = loss_fn(output, target)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        if batch % 10 == 0:
-            plt.subplot(1, 2, 1)
-            plt.imshow(create_image(target[0, :, :].cpu().detach().numpy()))
-            plt.subplot(1, 2, 2)
-            output = torch.argmax(output, dim=1)
-            plt.imshow(create_image(output[0, :, :].cpu().detach().numpy()))
-            plt.show()
-
-
-def validate(validation_dataloader, model, loss_fn, device):
-    validation_loss = 0
-
-    dice_metric = DiceMetric(include_background=False, reduction="mean")
-
-    with torch.no_grad():
-        for batch, (input, target) in enumerate(validation_dataloader):
-            input = input.to(device)
-            target = target.to(device)
-
-            output = model(input)[0]
-
-            loss = loss_fn(output, target)
-            validation_loss += loss.item()
-
-            dice_metric(y_pred=output, y=target)
-
-    dice_score = dice_metric.aggregate().item()
-    return validation_loss / len(validation_dataloader), dice_score
+def set_seeds(seed=42):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 def format_time(seconds):
@@ -65,15 +31,60 @@ def format_time(seconds):
         return "%ds" % seconds
 
 
+def train(train_dataloader, model, optimizer, loss_fn, device):
+
+    for batch, (input, target) in enumerate(train_dataloader):
+        input = input.to(device)
+        target = target.to(device)
+
+        output = model(input)[0]
+
+        loss = loss_fn(output, target)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if batch % 20 == 0:
+            plt.subplot(1, 2, 1)
+            plt.imshow(create_image(target[0, :, :].cpu().detach().numpy()))
+            plt.subplot(1, 2, 2)
+            output = torch.argmax(output, dim=1)
+            plt.imshow(create_image(output[0, :, :].cpu().detach().numpy()))
+            plt.show()
+
+
+def validate(validation_dataloader, model, loss_fn, device):
+    validation_loss = 0
+
+    dice_metric = DiceMetric(include_background=True, reduction="mean")
+
+    with torch.no_grad():
+        for batch, (input, target) in enumerate(validation_dataloader):
+            input = input.to(device)
+            target = target.to(device)
+
+            output = model(input)[0]
+
+            loss = loss_fn(output, target)
+            validation_loss += loss.item()
+
+            y_pred = torch.argmax(output, dim=1, keepdim=True)
+            dice_metric(y_pred, target)
+
+    dice_score = dice_metric.aggregate().item()
+    return validation_loss / len(validation_dataloader), dice_score
+
+
 def main(args):
     start_time = time.time()
+    set_seeds()
 
     train_dataloader, validation_dataloader = load_data()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = BasicUNetPlusPlus(
         spatial_dims=2,
-        in_channels=3,
+        in_channels=2,
         out_channels=4,
         features=[64, 128, 256, 512, 1024, 128],
     ).to(device)

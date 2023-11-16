@@ -18,7 +18,7 @@ def main():
     batch_size = 1
     model = BasicUNetPlusPlus(
         spatial_dims=2,
-        in_channels=3,
+        in_channels=2,
         out_channels=4,
         features=[64, 128, 256, 512, 1024, 128],
     ).to(device)

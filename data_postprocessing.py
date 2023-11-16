@@ -32,7 +32,7 @@ def process_image(row):
     elif most_common_value == 2:
         kernel = np.ones((5, 5), np.uint8)
     else:
-        kernel = np.ones((2, 2), np.uint8)
+        kernel = np.ones((1, 1), np.uint8)
 
     # Apply closing operation
     closing_result = cv2.morphologyEx(binary_image, cv2.MORPH_CLOSE, kernel)

@@ -27,7 +27,12 @@ def process_image(row):
         most_common_value = unique_values[np.argmax(counts)]
 
     # Define the kernel for morphological operations
-    kernel = np.ones((7, 7), np.uint8)
+    if most_common_value == 1:
+        kernel = np.ones((9, 9), np.uint8)
+    elif most_common_value == 2:
+        kernel = np.ones((5, 5), np.uint8)
+    else:
+        kernel = np.ones((2, 2), np.uint8)
 
     # Apply closing operation
     closing_result = cv2.morphologyEx(binary_image, cv2.MORPH_CLOSE, kernel)
@@ -48,7 +53,7 @@ def process_image(row):
 
     plt.show()
 
-    time.sleep(2)
+    time.sleep(2.5)
 
     # Construct the output row
     output_row = [image_name] + result_flattened.tolist()

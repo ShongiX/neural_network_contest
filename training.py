@@ -8,7 +8,7 @@ from monai.networks.nets import UNet, BasicUNetPlusPlus
 from torch import nn
 
 from data_preprocessing import load_data, create_image
-from simple_convolution import SimpleConvolutionalNetwork
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 def train(train_dataloader, model, optimizer, loss_fn, device):
@@ -70,18 +70,6 @@ def main(args):
 
     train_dataloader, validation_dataloader = load_data()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # model = SimpleConvolutionalNetwork().to(device)
-
-    # model = UNet(
-    #     spatial_dims=2,
-    #     in_channels=3,
-    #     out_channels=4,
-    #     channels=[16, 32, 64, 128],
-    #     strides=[2, 2, 2],
-    #     kernel_size=3,
-    #     up_kernel_size=3,
-    #     num_res_units=2,
-    # ).to(device)
 
     model = BasicUNetPlusPlus(
         spatial_dims=2,
@@ -91,7 +79,8 @@ def main(args):
     ).to(device)
 
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # Training
     epochs = args.epochs
@@ -108,6 +97,8 @@ def main(args):
         if test_loss < best_test_loss:
             best_test_loss = test_loss
             torch.save(model.state_dict(), 'unetplusplus.pth')
+
+        scheduler.step(test_loss)
 
         print(f"Epoch: {epoch}, Test loss: {test_loss:>8f}, Dice score: {dice_score:>8f}, Elapsed time: {format_time(time.time() - start_time)}")
 
@@ -131,7 +122,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Kaggle competition.')
-    parser.add_argument('--epochs', type=int, default=120, help='Number of epochs to train the model')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train the model')
     parser.add_argument('--train_loss', type=bool, default=True, help='Print train loss or not')
     _args = parser.parse_args()
 

@@ -20,13 +20,13 @@ def main():
         spatial_dims=2,
         in_channels=2,
         out_channels=4,
-        features=[64, 128, 256, 512, 1024, 128],
+        features=[128, 256, 512, 512, 1024, 128],
     ).to(device)
-    model.load_state_dict(torch.load('unetplusplus.pth'))
+    model.load_state_dict(torch.load('unetplusplusplus.pth'))
     test_dataset = CompetitionDataset(img_dir='test_data', test=True)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size)
 
-    with open('submission_plusplus.csv', 'w', newline='') as csvfile:
+    with open('submission_plusplusplus.csv', 'w', newline='') as csvfile:
         csvwriter = csv.writer(csvfile, delimiter=',')
 
         header_row = ['id'] + [str(i) for i in range(1, 16385)]

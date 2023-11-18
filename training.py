@@ -3,12 +3,12 @@ import time
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from monai.metrics import DiceMetric
-from monai.networks.nets import UNet, BasicUNetPlusPlus
+from monai.networks.nets import BasicUNetPlusPlus
 from torch import nn
-
+from fastai.losses import DiceLoss, FocalLoss
 from data_preprocessing import load_data, create_image
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.tensorboard import SummaryWriter
 
 
 def set_seeds(seed=42):
@@ -31,32 +31,36 @@ def format_time(seconds):
         return "%ds" % seconds
 
 
-def train(train_dataloader, model, optimizer, loss_fn, device):
-
+def train(train_dataloader, model, optimizer, loss_fn, device, metric, focal):
     for batch, (input, target) in enumerate(train_dataloader):
         input = input.to(device)
         target = target.to(device)
 
         output = model(input)[0]
 
-        loss = loss_fn(output, target)
+        dice = metric(output.permute(0, 2, 3, 1).contiguous().view(-1, output.size(1)), target.view(-1))
+        focal_loss = focal(output, target)
+
+        loss = dice + focal_loss
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        if batch % 20 == 0:
-            plt.subplot(1, 2, 1)
-            plt.imshow(create_image(target[0, :, :].cpu().detach().numpy()))
-            plt.subplot(1, 2, 2)
-            output = torch.argmax(output, dim=1)
-            plt.imshow(create_image(output[0, :, :].cpu().detach().numpy()))
-            plt.show()
+        with torch.no_grad():
+            if batch % 20 == 0:
+                plt.subplot(1, 2, 1)
+                plt.imshow(create_image(target[0, :, :].cpu().detach().numpy()))
+                plt.subplot(1, 2, 2)
+                output = torch.argmax(output, dim=1)
+                plt.imshow(create_image(output[0, :, :].cpu().detach().numpy()))
+                plt.show()
 
 
-def validate(validation_dataloader, model, loss_fn, device):
+def validate(validation_dataloader, model, loss_fn, device, metric, focal, writer, epoch):
     validation_loss = 0
-
-    dice_metric = DiceMetric(include_background=True, reduction="mean")
+    dice = 0
+    focal_loss = 0
 
     with torch.no_grad():
         for batch, (input, target) in enumerate(validation_dataloader):
@@ -68,17 +72,20 @@ def validate(validation_dataloader, model, loss_fn, device):
             loss = loss_fn(output, target)
             validation_loss += loss.item()
 
-            y_pred = torch.argmax(output, dim=1, keepdim=True)
-            dice_metric(y_pred, target)
+            dice += metric(output.permute(0, 2, 3, 1).contiguous().view(-1, output.size(1)), target.view(-1))
+            focal_loss += focal(output, target)
 
-    dice_score = dice_metric.aggregate().item()
-    return validation_loss / len(validation_dataloader), dice_score
+    writer.add_scalar('Validation/CrossEntropyLoss', validation_loss, epoch)
+    writer.add_scalar('Validation/DiceLoss', dice, epoch)
+    writer.add_scalar('Validation/FocalLoss', focal_loss, epoch)
+    return validation_loss / len(validation_dataloader), dice.item() / len(validation_dataloader), focal_loss.item() / len(validation_dataloader)
 
 
 def main(args):
     start_time = time.time()
     set_seeds()
 
+    writer = SummaryWriter()
     train_dataloader, validation_dataloader = load_data()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -86,10 +93,13 @@ def main(args):
         spatial_dims=2,
         in_channels=2,
         out_channels=4,
-        features=[64, 128, 256, 512, 1024, 128],
+        features=[128, 256, 512, 512, 1024, 128],
     ).to(device)
 
     loss_fn = nn.CrossEntropyLoss()
+    metric = DiceLoss(axis=1, reduction='mean')
+    focal = FocalLoss(gamma=2)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
@@ -97,21 +107,27 @@ def main(args):
     epochs = args.epochs
     best_test_loss = float('inf')
     test_loss_list = []
-    dice_score_list = []
+    dice_loss_list = []
+    focal_loss_list = []
 
     for epoch in range(epochs):
-        train(train_dataloader, model, optimizer, loss_fn, device)
-        test_loss, dice_score = validate(validation_dataloader, model, loss_fn, device)
+        train(train_dataloader, model, optimizer, loss_fn, device, metric, focal)
+        test_loss, dice, focal_loss = validate(validation_dataloader, model, loss_fn, device, metric, focal, writer, epoch)
         test_loss_list.append(test_loss)
-        dice_score_list.append(dice_score)
+        dice_loss_list.append(dice)
+        focal_loss_list.append(focal_loss)
 
         if test_loss < best_test_loss:
             best_test_loss = test_loss
-            torch.save(model.state_dict(), 'unetplusplus.pth')
+            torch.save(model.state_dict(), 'unetplusplusplus.pth')
 
         scheduler.step(test_loss)
 
-        print(f"Epoch: {epoch}, Test loss: {test_loss:>8f}, Dice score: {dice_score:>8f}, Elapsed time: {format_time(time.time() - start_time)}")
+        writer.add_scalar('BestLoss', best_test_loss, epoch)
+
+        print(f"Epoch: {epoch}, CrossEntropy loss: {test_loss:>8f}, Dice loss: {dice:>8f}, Focal loss: {focal_loss:>8f}, Elapsed time: {format_time(time.time() - start_time)}")
+
+    writer.close()
 
     # Plot results
     x_axis = np.linspace(0, len(test_loss_list), len(test_loss_list))
@@ -121,10 +137,11 @@ def main(args):
     plt.title('Loss vs Epochs')
     plt.show()
 
-    plt.plot(x_axis, dice_score_list)
+    x_axis = np.linspace(0, len(dice_loss_list), len(dice_loss_list))
+    plt.plot(x_axis, dice_loss_list)
     plt.xlabel('Epochs')
-    plt.ylabel('Dice score')
-    plt.title('Dice score vs Epochs')
+    plt.ylabel('Dice')
+    plt.title('Dice vs Epochs')
     plt.show()
 
     print(

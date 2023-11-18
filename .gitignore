@@ -1,5 +1,6 @@
 /test_data/
 /train_data/
 /validate_data/
+/wrong_data/
 *.csv
 *.pth

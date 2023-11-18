@@ -28,7 +28,7 @@ def process_image(row):
 
     # Define the kernel for morphological operations
     if most_common_value == 1:
-        kernel = np.ones((9, 9), np.uint8)
+        kernel = np.ones((7, 7), np.uint8)
     elif most_common_value == 2:
         kernel = np.ones((5, 5), np.uint8)
     else:
@@ -43,17 +43,17 @@ def process_image(row):
     # Flatten the result image
     result_flattened = result_image.flatten()
 
-    plt.subplot(1, 2, 1)
-    plt.imshow(input_array, cmap='gray')
-    plt.title('Input Image')
-
-    plt.subplot(1, 2, 2)
-    plt.imshow(closing_result, cmap='gray')
-    plt.title('Closing Result')
-
-    plt.show()
-
-    time.sleep(2.5)
+    # plt.subplot(1, 2, 1)
+    # plt.imshow(input_array, cmap='gray')
+    # plt.title('Input Image')
+    #
+    # plt.subplot(1, 2, 2)
+    # plt.imshow(closing_result, cmap='gray')
+    # plt.title('Closing Result')
+    #
+    # plt.show()
+    #
+    # time.sleep(2.5)
 
     # Construct the output row
     output_row = [image_name] + result_flattened.tolist()
@@ -62,7 +62,7 @@ def process_image(row):
 
 
 # Load data from CSV
-csv_path = "submission_plusplus.csv"
+csv_path = "submission_plusplusplus.csv"
 
 with open(csv_path, newline='') as csvfile:
     reader = csv.reader(csvfile)
@@ -76,7 +76,7 @@ data = rows[1:]
 processed_data = [process_image(row) for row in data]
 
 # Create a new CSV file with the processed data
-result_csv_path = "closed_submission_plusplus.csv"
+result_csv_path = "closed_submission_plusplusplus.csv"
 with open(result_csv_path, mode='w', newline='') as csvfile:
     writer = csv.writer(csvfile)
 

@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 from PIL import Image
+from torchvision import transforms
 
 
 def create_image(output_mask):
@@ -54,6 +55,11 @@ class CompetitionDataset(Dataset):
         self.transform = tio.Compose([
             tio.ZNormalization(),
         ])
+        self.transform2 = transforms.Compose([
+            transforms.RandomVerticalFlip(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(degrees=10),
+        ])
 
     def __len__(self):
         return len(self.image_files)
@@ -84,11 +90,16 @@ class CompetitionDataset(Dataset):
         target_mask = create_mask(target_image)
         target_mask = torch.Tensor(target_mask)
 
+        concat = torch.cat((input_image, target_mask.unsqueeze(0)), dim=0)
+        concat = self.transform2(concat)
+        input_image = concat[:2, :, :]
+        target_mask = concat[2, :, :]
+
         return input_image, target_mask.long()
 
 
 def load_data():
-    train_dataset = CompetitionDataset(img_dir='train_data', test=False)
+    train_dataset = CompetitionDataset(img_dir='combined_data', test=False)
     validate_dataset = CompetitionDataset(img_dir='validate_data', test=False)
 
     batch_size = 5
@@ -113,7 +124,5 @@ if __name__ == '__main__':
         plt.subplot(1, 2, 2)
         plt.imshow(plot_target)
         plt.show()
-
-        break
 
 

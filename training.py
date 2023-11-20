@@ -38,10 +38,11 @@ def train(train_dataloader, model, optimizer, loss_fn, device, metric, focal):
 
         output = model(input)[0]
 
-        dice = metric(output.permute(0, 2, 3, 1).contiguous().view(-1, output.size(1)), target.view(-1))
+        cross_entropy_loss = loss_fn(output, target)
+        dice_loss = metric(output.permute(0, 2, 3, 1).contiguous().view(-1, output.size(1)), target.view(-1))
         focal_loss = focal(output, target)
 
-        loss = dice + focal_loss
+        loss = cross_entropy_loss + dice_loss + focal_loss
 
         optimizer.zero_grad()
         loss.backward()
@@ -85,7 +86,7 @@ def main(args):
     start_time = time.time()
     set_seeds()
 
-    writer = SummaryWriter()
+    writer = SummaryWriter(comment="MultiClass_UNetPlusPlus")
     train_dataloader, validation_dataloader = load_data()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

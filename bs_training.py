@@ -38,10 +38,11 @@ def train(train_dataloader, model, optimizer, loss_fn, device, metric, focal):
 
         output = model(input)[0]
 
-        dice = metric(output.permute(0, 2, 3, 1).contiguous().view(-1, output.size(1)), target.view(-1))
+        cross_entropy_loss = loss_fn(output, target)
+        dice_loss = metric(output.permute(0, 2, 3, 1).contiguous().view(-1, output.size(1)), target.view(-1))
         focal_loss = focal(output, target)
 
-        loss = dice + focal_loss
+        loss = cross_entropy_loss + dice_loss + focal_loss
 
         optimizer.zero_grad()
         loss.backward()
@@ -152,7 +153,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Kaggle competition.')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train the model')
     parser.add_argument('--train_loss', type=bool, default=True, help='Print train loss or not')
-    parser.add_argument('--class_index', type=int, default=0, help='Class index to train the model')
+    parser.add_argument('--class_index', type=int, default=2, help='Class index to train the model')
     _args = parser.parse_args()
 
     main(_args)

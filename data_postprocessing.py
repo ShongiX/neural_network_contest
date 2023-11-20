@@ -28,9 +28,9 @@ def process_image(row):
 
     # Define the kernel for morphological operations
     if most_common_value == 1:
-        kernel = np.ones((7, 7), np.uint8)
-    elif most_common_value == 2:
         kernel = np.ones((5, 5), np.uint8)
+    elif most_common_value == 2:
+        kernel = np.ones((3, 3), np.uint8)
     else:
         kernel = np.ones((1, 1), np.uint8)
 
@@ -62,7 +62,7 @@ def process_image(row):
 
 
 # Load data from CSV
-csv_path = "submission_plusplusplus.csv"
+csv_path = "submission_binary_segment.csv"
 
 with open(csv_path, newline='') as csvfile:
     reader = csv.reader(csvfile)
@@ -76,7 +76,7 @@ data = rows[1:]
 processed_data = [process_image(row) for row in data]
 
 # Create a new CSV file with the processed data
-result_csv_path = "closed_submission_plusplusplus.csv"
+result_csv_path = "closed_submission_binary_segment.csv"
 with open(result_csv_path, mode='w', newline='') as csvfile:
     writer = csv.writer(csvfile)
 

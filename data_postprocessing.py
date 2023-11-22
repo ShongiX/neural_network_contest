@@ -28,9 +28,9 @@ def process_image(row):
 
     # Define the kernel for morphological operations
     if most_common_value == 1:
-        kernel = np.ones((5, 5), np.uint8)
+        kernel = np.ones((7, 7), np.uint8)
     elif most_common_value == 2:
-        kernel = np.ones((3, 3), np.uint8)
+        kernel = np.ones((1, 1), np.uint8)
     else:
         kernel = np.ones((1, 1), np.uint8)
 

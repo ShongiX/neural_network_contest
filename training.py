@@ -43,19 +43,20 @@ def train(train_dataloader, model, optimizer, loss_fn, device, metric, focal):
         focal_loss = focal(output, target)
 
         loss = cross_entropy_loss + dice_loss + focal_loss
+        # loss = dice_loss
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        with torch.no_grad():
-            if batch % 20 == 0:
-                plt.subplot(1, 2, 1)
-                plt.imshow(create_image(target[0, :, :].cpu().detach().numpy()))
-                plt.subplot(1, 2, 2)
-                output = torch.argmax(output, dim=1)
-                plt.imshow(create_image(output[0, :, :].cpu().detach().numpy()))
-                plt.show()
+        # with torch.no_grad():
+        #     if batch % 20 == 0:
+        #         plt.subplot(1, 2, 1)
+        #         plt.imshow(create_image(target[0, :, :].cpu().detach().numpy()))
+        #         plt.subplot(1, 2, 2)
+        #         output = torch.argmax(output, dim=1)
+        #         plt.imshow(create_image(output[0, :, :].cpu().detach().numpy()))
+        #         plt.show()
 
 
 def validate(validation_dataloader, model, loss_fn, device, metric, focal, writer, epoch):

@@ -1,11 +1,14 @@
 import argparse
 import time
 import numpy as np
+import optuna
 import torch
 from matplotlib import pyplot as plt
 from monai.networks.nets import BasicUNetPlusPlus
 from torch import nn
 from fastai.losses import DiceLoss, FocalLoss
+from tqdm import tqdm
+
 from bs_data_preprocessing import load_data, create_image
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
@@ -44,18 +47,10 @@ def train(train_dataloader, model, optimizer, loss_fn, device, metric, focal, cr
 
         loss = cross_entropy_weight*cross_entropy_loss + dice_weight*dice_loss + focal_weight*focal_loss
 
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        with torch.no_grad():
-            if batch % 20 == 0:
-                plt.subplot(1, 2, 1)
-                plt.imshow(create_image(target[0, :, :].cpu().detach().numpy()))
-                plt.subplot(1, 2, 2)
-                output = torch.argmax(output, dim=1)
-                plt.imshow(create_image(output[0, :, :].cpu().detach().numpy()))
-                plt.show()
 
 
 def validate(validation_dataloader, model, loss_fn, device, metric, focal, writer, epoch, cross_entropy_weight, dice_weight, focal_weight):
@@ -82,14 +77,13 @@ def validate(validation_dataloader, model, loss_fn, device, metric, focal, write
     return cross_entropy_weight * cross_entropy_loss / len(validation_dataloader), dice_weight * dice_loss.item() / len(validation_dataloader), focal_weight * focal_loss.item() / len(validation_dataloader)
 
 
-def main(args):
-    start_time = time.time()
-    set_seeds()
+train_dataloader = None
+validation_dataloader = None
+writer = None
 
-    writer = SummaryWriter(comment="BS_UNetPlusPlus")
-    train_dataloader, validation_dataloader = load_data(args.class_index)
+
+def objective(trial):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     model = BasicUNetPlusPlus(
         spatial_dims=2,
         in_channels=2,
@@ -97,67 +91,62 @@ def main(args):
         features=[128, 256, 512, 512, 1024, 128],
     ).to(device)
 
+    cross_entropy_weight = trial.suggest_float('cross_entropy_weight', 0.1, 10.0)
+    dice_weight = trial.suggest_float('dice_weight', 0.1, 10.0)
+    focal_weight = trial.suggest_float('focal_weight', 0.1, 10.0)
+
     loss_fn = nn.CrossEntropyLoss()
     metric = DiceLoss(axis=1, reduction='mean')
     focal = FocalLoss(gamma=2)
-
-    cross_entropy_weight = 0.10204594423842461
-    dice_weight = 0.10363852143665185
-    focal_weight = 0.3169858253714459
-
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
-    # Training
-    epochs = args.epochs
-    best_test_loss = float('inf')
-    cross_entropy_loss_list = []
-    dice_loss_list = []
-    focal_loss_list = []
+    best_validation_loss = float('inf')
 
+    epochs = 12
     for epoch in range(epochs):
         train(train_dataloader, model, optimizer, loss_fn, device, metric, focal, cross_entropy_weight, dice_weight, focal_weight)
         cross_entropy_loss, dice_loss, focal_loss = validate(validation_dataloader, model, loss_fn, device, metric, focal, writer, epoch, cross_entropy_weight, dice_weight, focal_weight)
-        cross_entropy_loss_list.append(cross_entropy_loss)
-        dice_loss_list.append(dice_loss)
-        focal_loss_list.append(focal_loss)
-        validation_loss = cross_entropy_loss + 2*dice_loss + focal_loss
+        validation_loss = cross_entropy_loss + dice_loss + focal_loss
 
-        if validation_loss < best_test_loss:
-            best_test_loss = validation_loss
-            torch.save(model.state_dict(), 'bs_' + str(args.class_index) + '.pth')
+        if validation_loss < best_validation_loss:
+            best_validation_loss = validation_loss
 
         scheduler.step(validation_loss)
 
-        writer.add_scalar('BestLoss', best_test_loss, epoch)
+    return best_validation_loss
 
-        print(f"Epoch: {epoch}, Validation loss: {validation_loss:>8f}, CrossEntropy loss: {cross_entropy_loss:>8f}, Dice loss: {dice_loss:>8f}, Focal loss: {focal_loss:>8f}, Elapsed time: {format_time(time.time() - start_time)}")
+
+def main(args):
+    set_seeds()
+
+    _writer = SummaryWriter(comment="BS_UNetPlusPlus")
+    _train_dataloader, _validation_dataloader = load_data(args.class_index)
+    global train_dataloader
+    global validation_dataloader
+    train_dataloader = _train_dataloader
+    validation_dataloader = _validation_dataloader
+    global writer
+    writer = _writer
+
+    study = optuna.create_study(direction='minimize', sampler=optuna.samplers.TPESampler())
+
+    with tqdm(total=400) as progress_bar:  # Number of trials
+        def update_progress_bar(study, trial):
+            progress_bar.set_description(
+                f"Evaluating trial {trial.number}/{400}")  # Update description with current trial number
+            progress_bar.update(1)  # Update the progress bar
+
+        study.optimize(objective, n_trials=400, callbacks=[update_progress_bar])  # Number of trials
 
     writer.close()
-
-    # Plot results
-    x_axis = np.linspace(0, len(cross_entropy_loss_list), len(cross_entropy_loss_list))
-    plt.plot(x_axis, cross_entropy_loss_list)
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title('Loss vs Epochs')
-    plt.show()
-
-    x_axis = np.linspace(0, len(dice_loss_list), len(dice_loss_list))
-    plt.plot(x_axis, dice_loss_list)
-    plt.xlabel('Epochs')
-    plt.ylabel('Dice')
-    plt.title('Dice vs Epochs')
-    plt.show()
-
-    print(
-        f"Best test loss: {best_test_loss:>8f}, Elapsed time: {format_time(time.time() - start_time)}")
+    best_params = study.best_params
+    print(f"Best hyperparameters: {best_params}")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Kaggle competition.')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train the model')
-    parser.add_argument('--train_loss', type=bool, default=True, help='Print train loss or not')
     parser.add_argument('--class_index', type=int, default=0, help='Class index to train the model')
     _args = parser.parse_args()
 

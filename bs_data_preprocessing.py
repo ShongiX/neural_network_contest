@@ -54,7 +54,6 @@ class BinarySegmentDataset(Dataset):
         self.transform2 = transforms.Compose([
             transforms.RandomVerticalFlip(),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(degrees=10),
         ])
 
         if not test:

@@ -108,7 +108,8 @@ def main(args):
     dice_weight = 0.10363852143665185
     focal_weight = 0.3169858253714459
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # Training
@@ -135,7 +136,7 @@ def main(args):
         scheduler.step(validation_loss)
 
         current_lr = optimizer.param_groups[0]['lr']
-        if current_lr < 1e-10:
+        if current_lr < 1e-9:
             break
 
         writer.add_scalar('BestLoss', best_test_loss, epoch)

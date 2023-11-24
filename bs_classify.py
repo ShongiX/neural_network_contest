@@ -2,6 +2,8 @@ import csv
 import numpy as np
 
 
+# The multi-class segmentation model is used as a classifier by taking the most common value in the output mask.
+
 def process_image(row):
     image_name = row[0]
     pixel_values = np.array(row[1:], dtype=np.uint8)

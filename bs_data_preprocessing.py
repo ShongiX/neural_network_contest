@@ -78,7 +78,7 @@ class BinarySegmentDataset(Dataset):
             np.float32)
         input_image = np.stack((tiff_image, bmp_image), axis=-1)
         input_image = input_image.transpose((2, 0, 1))
-        input_image = add_gaussian_noise(input_image)
+        # input_image = add_gaussian_noise(input_image)
         input_image = torch.FloatTensor(input_image)
 
         input_image = input_image[..., np.newaxis]
@@ -107,7 +107,7 @@ def load_data(class_index=0):
     train_dataset = BinarySegmentDataset(img_dir='combined_data', class_index=class_index, test=False)
     validate_dataset = BinarySegmentDataset(img_dir='validate_data', class_index=class_index, test=False)
 
-    batch_size = 5
+    batch_size = 1
 
     _train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     _validate_dataloader = DataLoader(validate_dataset, batch_size=batch_size)

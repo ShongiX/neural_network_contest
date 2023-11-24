@@ -43,6 +43,12 @@ def get_class_index(class_name):
         return 2
 
 
+def add_gaussian_noise(image):
+    noise = np.random.normal(0, 20, image.shape)
+    noisy_image = image + noise
+    return np.clip(noisy_image, 0, 255).astype(np.uint8)
+
+
 class BinarySegmentDataset(Dataset):
     def __init__(self, img_dir, class_index, test=False):
         self.img_dir = img_dir
@@ -72,6 +78,7 @@ class BinarySegmentDataset(Dataset):
             np.float32)
         input_image = np.stack((tiff_image, bmp_image), axis=-1)
         input_image = input_image.transpose((2, 0, 1))
+        input_image = add_gaussian_noise(input_image)
         input_image = torch.FloatTensor(input_image)
 
         input_image = input_image[..., np.newaxis]

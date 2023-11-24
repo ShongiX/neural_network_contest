@@ -83,17 +83,23 @@ writer = None
 
 
 def objective(trial):
+    feature_1 = trial.suggest_int('feature_1', 64, 512, log=True)
+    feature_2 = trial.suggest_int('feature_2', 64, 512, log=True)
+    feature_3 = trial.suggest_int('feature_3', 64, 512, log=True)
+    feature_4 = trial.suggest_int('feature_4', 64, 1024, log=True)
+    feature_5 = trial.suggest_int('feature_5', 64, 1024, log=True)
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = BasicUNetPlusPlus(
         spatial_dims=2,
         in_channels=2,
         out_channels=2,
-        features=[128, 256, 512, 512, 1024, 128],
+        features=[feature_1, feature_2, feature_3, feature_4, feature_5, 128],
     ).to(device)
 
-    cross_entropy_weight = trial.suggest_float('cross_entropy_weight', 0.1, 10.0)
-    dice_weight = trial.suggest_float('dice_weight', 0.1, 10.0)
-    focal_weight = trial.suggest_float('focal_weight', 0.1, 10.0)
+    cross_entropy_weight = 0.10204594423842461
+    dice_weight = 0.10363852143665185
+    focal_weight = 0.3169858253714459
 
     loss_fn = nn.CrossEntropyLoss()
     metric = DiceLoss(axis=1, reduction='mean')
@@ -103,11 +109,11 @@ def objective(trial):
 
     best_validation_loss = float('inf')
 
-    epochs = 12
+    epochs = 10
     for epoch in range(epochs):
         train(train_dataloader, model, optimizer, loss_fn, device, metric, focal, cross_entropy_weight, dice_weight, focal_weight)
         cross_entropy_loss, dice_loss, focal_loss = validate(validation_dataloader, model, loss_fn, device, metric, focal, writer, epoch, cross_entropy_weight, dice_weight, focal_weight)
-        validation_loss = cross_entropy_loss + dice_loss + focal_loss
+        validation_loss = cross_entropy_weight*cross_entropy_loss + dice_weight*dice_loss + focal_weight*focal_loss
 
         if validation_loss < best_validation_loss:
             best_validation_loss = validation_loss

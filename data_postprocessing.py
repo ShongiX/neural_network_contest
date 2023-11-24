@@ -28,9 +28,9 @@ def process_image(row):
 
     # Define the kernel for morphological operations
     if most_common_value == 1:
-        kernel = np.ones((7, 7), np.uint8)
+        kernel = np.ones((5, 5), np.uint8)
     elif most_common_value == 2:
-        kernel = np.ones((1, 1), np.uint8)
+        kernel = np.ones((3, 3), np.uint8)
     else:
         kernel = np.ones((1, 1), np.uint8)
 
@@ -43,17 +43,17 @@ def process_image(row):
     # Flatten the result image
     result_flattened = result_image.flatten()
 
-    # plt.subplot(1, 2, 1)
-    # plt.imshow(input_array, cmap='gray')
-    # plt.title('Input Image')
-    #
-    # plt.subplot(1, 2, 2)
-    # plt.imshow(closing_result, cmap='gray')
-    # plt.title('Closing Result')
-    #
-    # plt.show()
-    #
-    # time.sleep(2.5)
+    plt.subplot(1, 2, 1)
+    plt.imshow(input_array, cmap='gray')
+    plt.title('Input Image')
+
+    plt.subplot(1, 2, 2)
+    plt.imshow(closing_result, cmap='gray')
+    plt.title('Closing Result')
+
+    plt.show()
+
+    time.sleep(2)
 
     # Construct the output row
     output_row = [image_name] + result_flattened.tolist()

@@ -1,4 +1,5 @@
 import argparse
+import random
 import time
 import numpy as np
 import torch
@@ -13,6 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 def set_seeds(seed=42):
     np.random.seed(seed)
+    random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -48,14 +50,14 @@ def train(train_dataloader, model, optimizer, loss_fn, device, metric, focal, cr
         loss.backward()
         optimizer.step()
 
-        with torch.no_grad():
-            if batch % 20 == 0:
-                plt.subplot(1, 2, 1)
-                plt.imshow(create_image(target[0, :, :].cpu().detach().numpy()))
-                plt.subplot(1, 2, 2)
-                output = torch.argmax(output, dim=1)
-                plt.imshow(create_image(output[0, :, :].cpu().detach().numpy()))
-                plt.show()
+        # with torch.no_grad():
+        #     if batch % 20 == 0:
+        #         plt.subplot(1, 2, 1)
+        #         plt.imshow(create_image(target[0, :, :].cpu().detach().numpy()))
+        #         plt.subplot(1, 2, 2)
+        #         output = torch.argmax(output, dim=1)
+        #         plt.imshow(create_image(output[0, :, :].cpu().detach().numpy()))
+        #         plt.show()
 
 
 def validate(validation_dataloader, model, loss_fn, device, metric, focal, writer, epoch, cross_entropy_weight, dice_weight, focal_weight):
@@ -94,7 +96,8 @@ def main(args):
         spatial_dims=2,
         in_channels=2,
         out_channels=2,
-        features=[128, 256, 512, 512, 1024, 128],
+        # features=[128, 256, 512, 512, 1024, 128],
+        features=[305, 85, 261, 322, 213, 128]
     ).to(device)
 
     loss_fn = nn.CrossEntropyLoss()
@@ -114,6 +117,7 @@ def main(args):
     cross_entropy_loss_list = []
     dice_loss_list = []
     focal_loss_list = []
+    validation_loss_list = []
 
     for epoch in range(epochs):
         train(train_dataloader, model, optimizer, loss_fn, device, metric, focal, cross_entropy_weight, dice_weight, focal_weight)
@@ -121,13 +125,18 @@ def main(args):
         cross_entropy_loss_list.append(cross_entropy_loss)
         dice_loss_list.append(dice_loss)
         focal_loss_list.append(focal_loss)
-        validation_loss = cross_entropy_loss + 2*dice_loss + focal_loss
+        validation_loss = cross_entropy_weight*cross_entropy_loss + dice_weight*dice_loss + focal_weight*focal_loss
+        validation_loss_list.append(validation_loss)
 
         if validation_loss < best_test_loss:
             best_test_loss = validation_loss
             torch.save(model.state_dict(), 'bs_' + str(args.class_index) + '.pth')
 
         scheduler.step(validation_loss)
+
+        current_lr = optimizer.param_groups[0]['lr']
+        if current_lr < 1e-10:
+            break
 
         writer.add_scalar('BestLoss', best_test_loss, epoch)
 
@@ -136,18 +145,11 @@ def main(args):
     writer.close()
 
     # Plot results
-    x_axis = np.linspace(0, len(cross_entropy_loss_list), len(cross_entropy_loss_list))
-    plt.plot(x_axis, cross_entropy_loss_list)
+    x_axis = np.linspace(0, len(validation_loss_list), len(validation_loss_list))
+    plt.plot(x_axis, validation_loss_list, label='Validation Loss')
     plt.xlabel('Epochs')
-    plt.ylabel('Loss')
+    plt.ylabel('Validation Loss')
     plt.title('Loss vs Epochs')
-    plt.show()
-
-    x_axis = np.linspace(0, len(dice_loss_list), len(dice_loss_list))
-    plt.plot(x_axis, dice_loss_list)
-    plt.xlabel('Epochs')
-    plt.ylabel('Dice')
-    plt.title('Dice vs Epochs')
     plt.show()
 
     print(

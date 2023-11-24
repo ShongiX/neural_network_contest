@@ -31,7 +31,7 @@ def main():
             spatial_dims=2,
             in_channels=2,
             out_channels=2,
-            features=[128, 256, 512, 512, 1024, 128],
+            features=[305, 85, 261, 322, 213, 128]
         ).to(device)
         model.load_state_dict(torch.load(model_path))
         model.eval()
@@ -64,7 +64,7 @@ def main():
                 plt.imshow(create_image(output[0, :, :]))
                 plt.show()
 
-                time.sleep(2.5)
+                time.sleep(3)
 
                 output = output.flatten()
                 data_row = [image_name] + [str(num) for num in output]

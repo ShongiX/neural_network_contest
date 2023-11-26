@@ -4,7 +4,7 @@ import time
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from monai.losses import HausdorffDTLoss, DiceFocalLoss
+from monai.losses import HausdorffDTLoss, DiceFocalLoss, DiceCELoss
 from monai.networks.nets import BasicUNetPlusPlus
 from torch import nn
 from fastai.losses import DiceLoss, FocalLoss
@@ -17,17 +17,18 @@ class Trainer:
     def __init__(self, args):
         self.epochs = args.epochs
         self.class_index = args.class_index
+        self.version = args.version
         self.train_dataloader, self.validation_dataloader = load_data(self.class_index)
 
-        self.cross_entropy_weight = 0
-        self.dice_weight = 1
+        self.cross_entropy_weight = 1
+        self.dice_weight = 0
         self.hausdorff_weight = 0
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.writer = SummaryWriter(comment="BS_UNetPlusPlus")
 
         self.model = self._initialize_model()
-        self.cross = nn.CrossEntropyLoss()
+        self.cross = DiceCELoss(include_background=False, to_onehot_y=True, softmax=True)
         self.dice = DiceFocalLoss(include_background=False, to_onehot_y=True, softmax=True)
         self.hausdorff = HausdorffDTLoss(include_background=False, softmax=True, to_onehot_y=True)
 
@@ -49,7 +50,7 @@ class Trainer:
         ).to(self.device)
 
     @staticmethod
-    def set_seeds(seed=42):
+    def set_seeds(seed=87):
         np.random.seed(seed)
         random.seed(seed)
         torch.manual_seed(seed)
@@ -79,7 +80,7 @@ class Trainer:
 
             if validation_loss < self.best_test_loss:
                 self.best_test_loss = validation_loss
-                torch.save(self.model.state_dict(), 'bs_' + str(self.class_index) + '.pth')
+                torch.save(self.model.state_dict(), 'bs_' + str(self.class_index) + '_seed' + str(self.version) + '.pth')
 
             self.scheduler.step(validation_loss)
             current_lr = self.optimizer.param_groups[0]['lr']
@@ -102,7 +103,7 @@ class Trainer:
             target = target.to(self.device)
             output = self.model(input)[0]
 
-            cross_entropy_loss = self.cross(output, target)
+            cross_entropy_loss = self.cross(output, target.unsqueeze(1))
             dice_loss = self.dice(output, target.unsqueeze(1))
             hausdorff_loss = self.hausdorff(output, target.unsqueeze(1))
 
@@ -123,7 +124,7 @@ class Trainer:
                 target = target.to(self.device)
                 output = self.model(input)[0]
 
-                cross_entropy_loss += self.cross(output, target)
+                cross_entropy_loss += self.cross(output, target.unsqueeze(1))
                 dice_loss += self.dice(output, target.unsqueeze(1))
                 hausdorff_loss += self.hausdorff(output, target.unsqueeze(1))
 
@@ -140,7 +141,7 @@ class Trainer:
     def _print_epoch_results(self, epoch, start_time, validation_loss, cross_entropy_loss, dice_loss, hausdorff_loss):
         print(
             f"Epoch: {epoch}, Validation loss: {validation_loss:>8f}, CrossEntropy loss: {cross_entropy_loss:>8f}, "
-            f"Dice loss: {dice_loss:>8f}, Hausdorff loss: {hausdorff_loss:>8f}, "
+            f"DiceFocal loss: {dice_loss:>8f}, Hausdorff loss: {hausdorff_loss:>8f}, "
             f"Elapsed time: {self.format_time(time.time() - start_time)}")
 
     def _plot_results(self):
@@ -152,15 +153,16 @@ class Trainer:
         plt.show()
 
     def main(self):
-        self.set_seeds()
+        # self.set_seeds()
         self.train_dataloader, self.validation_dataloader = load_data(self.class_index)
         self.train()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Kaggle competition.')
-    parser.add_argument('--epochs', type=int, default=200, help='Number of epochs to train the model')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train the model')
     parser.add_argument('--class_index', type=int, default=0, help='Class index to train the model')
+    parser.add_argument('--version', type=int, default=0, help='Version of the model')
     args = parser.parse_args()
 
     trainer = Trainer(args)

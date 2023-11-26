@@ -1,3 +1,4 @@
+import argparse
 import time
 
 import matplotlib.pyplot as plt
@@ -11,7 +12,7 @@ import csv
 from bs_data_preprocessing import BinarySegmentDataset, create_image
 
 
-def main():
+def main(args):
     start_time = time.time()
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -26,7 +27,7 @@ def main():
 
     models = {}
     for class_index in range(3):
-        model_path = f'bs_{class_index}.pth'
+        model_path = f'bs_{class_index}_seed{args.version}.pth'
         model = BasicUNetPlusPlus(
             spatial_dims=2,
             in_channels=2,
@@ -40,7 +41,7 @@ def main():
     test_dataset = BinarySegmentDataset(img_dir='test_data', class_index=-1, test=True)
     test_dataloader = DataLoader(test_dataset, batch_size=1)
 
-    with open('submission_binary_segment.csv', 'w', newline='') as csvfile:
+    with open('submission_binary_segment_' + str(args.version) + '.csv', 'w', newline='') as csvfile:
         csvwriter = csv.writer(csvfile, delimiter=',')
         header_row = ['id'] + [str(i) for i in range(1, 16385)]
         csvwriter.writerow(header_row)
@@ -57,14 +58,14 @@ def main():
                 output = torch.argmax(output, dim=1).cpu().detach().numpy()
                 output *= (class_index + 1)
 
-                plt.subplot(1, 2, 1)
-                plot_input = Image.fromarray(input[0, :, :, :].cpu().detach().numpy().transpose((1, 2, 0)).astype(np.uint8))
-                plt.imshow(plot_input)
-                plt.subplot(1, 2, 2)
-                plt.imshow(create_image(output[0, :, :]))
-                plt.show()
-
-                time.sleep(3)
+                # plt.subplot(1, 2, 1)
+                # plot_input = Image.fromarray(input[0, :, :, :].cpu().detach().numpy().transpose((1, 2, 0)).astype(np.uint8))
+                # plt.imshow(plot_input)
+                # plt.subplot(1, 2, 2)
+                # plt.imshow(create_image(output[0, :, :]))
+                # plt.show()
+                #
+                # time.sleep(3)
 
                 output = output.flatten()
                 data_row = [image_name] + [str(num) for num in output]
@@ -74,4 +75,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='Evaluate the model')
+    parser.add_argument('--version', type=int, default=0, help='Version of the model')
+    args = parser.parse_args()
+
+    main(args)

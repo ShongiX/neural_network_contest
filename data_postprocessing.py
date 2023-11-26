@@ -20,7 +20,7 @@ def process_image(row):
         most_common_value = unique_values[np.argmax(counts)]
 
     if most_common_value == 1:
-        kernel = np.ones((6, 6), np.uint8)
+        kernel = np.ones((3, 3), np.uint8)
     elif most_common_value == 2:
         kernel = np.ones((3, 3), np.uint8)
     else:
@@ -30,29 +30,31 @@ def process_image(row):
 
     if most_common_value == 2:
         kernel = np.ones((3, 3), np.uint8)
-        closing_result = cv2.erode(closing_result, kernel, iterations=1)
+        closing_result = cv2.erode(closing_result, kernel, iterations=2)
+        closing_result = cv2.dilate(closing_result, kernel, iterations=2)
 
     result_image = closing_result * most_common_value
     result_flattened = result_image.flatten()
 
-    # plt.subplot(1, 2, 1)
-    # plt.imshow(input_array, cmap='gray')
-    # plt.title(image_name)
+    # if most_common_value == 2:
+    #     plt.subplot(1, 2, 1)
+    #     plt.imshow(input_array, cmap='gray')
+    #     plt.title(image_name)
     #
-    # plt.subplot(1, 2, 2)
-    # plt.imshow(closing_result, cmap='gray')
-    # plt.title('Closing Result')
+    #     plt.subplot(1, 2, 2)
+    #     plt.imshow(closing_result, cmap='gray')
+    #     plt.title('Closing Result')
     #
-    # plt.show()
+    #     plt.show()
     #
-    # time.sleep(3)
+    #     time.sleep(3)
 
     output_row = [image_name] + result_flattened.tolist()
     return output_row
 
 
 # Load data from CSV
-csv_path = "submission_binary_segment.csv"
+csv_path = "voting/submission_094867.csv"
 
 with open(csv_path, newline='') as csvfile:
     reader = csv.reader(csvfile)
@@ -62,7 +64,7 @@ header = rows[0]
 data = rows[1:]
 
 processed_data = [process_image(row) for row in data]
-result_csv_path = "closed_submission_binary_segment.csv"
+result_csv_path = "final_submissions_5.csv"
 
 with open(result_csv_path, mode='w', newline='') as csvfile:
     writer = csv.writer(csvfile)

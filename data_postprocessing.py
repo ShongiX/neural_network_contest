@@ -20,14 +20,18 @@ def process_image(row):
         most_common_value = unique_values[np.argmax(counts)]
 
     if most_common_value == 1:
-        kernel = np.ones((5, 5), np.uint8)
+        kernel = np.ones((6, 6), np.uint8)
     elif most_common_value == 2:
         kernel = np.ones((3, 3), np.uint8)
     else:
         kernel = np.ones((1, 1), np.uint8)
 
-
     closing_result = cv2.morphologyEx(binary_image, cv2.MORPH_CLOSE, kernel)
+
+    if most_common_value == 2:
+        kernel = np.ones((3, 3), np.uint8)
+        closing_result = cv2.erode(closing_result, kernel, iterations=1)
+
     result_image = closing_result * most_common_value
     result_flattened = result_image.flatten()
 

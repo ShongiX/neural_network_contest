@@ -107,7 +107,7 @@ def load_data(class_index=0):
     train_dataset = BinarySegmentDataset(img_dir='combined_data', class_index=class_index, test=False)
     validate_dataset = BinarySegmentDataset(img_dir='validate_data', class_index=class_index, test=False)
 
-    batch_size = 1
+    batch_size = 5
 
     _train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     _validate_dataloader = DataLoader(validate_dataset, batch_size=batch_size)

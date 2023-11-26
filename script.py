@@ -1,6 +1,6 @@
 import subprocess
 import time
-from bs_training import format_time
+from training import format_time
 
 
 def run_bc_training(class_index):

@@ -8,7 +8,6 @@ def process_csv_files(directory):
 
     data = defaultdict(lambda: defaultdict(list))
 
-    # Reading data from CSV files
     for file_name in files:
         with open(os.path.join(directory, file_name), 'r') as csvfile:
             csvreader = csv.reader(csvfile)
@@ -17,14 +16,12 @@ def process_csv_files(directory):
                 for col_idx, value in enumerate(row[1:]):
                     data[row[0]][col_idx].append(int(value))
 
-    # Processing data to get the majority count
     majority_count = {}
     for row_id, columns in data.items():
         for col_idx, values in columns.items():
             count = sum(1 for val in values if val != 0)
             majority_count[(row_id, col_idx)] = 1 if count > len(files) / 2 else 0
 
-    # Writing the majority count to a new CSV file
     output_filename = 'majority_vote_submission_binary_segment.csv'
     with open(output_filename, 'w', newline='') as csvfile:
         csvwriter = csv.writer(csvfile)

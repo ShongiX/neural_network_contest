@@ -113,16 +113,18 @@ def load_data():
 if __name__ == '__main__':
     train_dataloader, validate_dataloader = load_data()
     for i, (input, target) in enumerate(train_dataloader):
-        plot_input = input[0, :, :, :].numpy().transpose((1, 2, 0))
+        plot_input0 = input[0, :, :, :].numpy().transpose((1, 2, 0))
         plot_target = target[0, :, :].numpy()
 
-        plot_input = Image.fromarray(plot_input[:, :, 1].astype(np.uint8))
-        plot_target = Image.fromarray(plot_target.astype(np.uint8))
+        plot_input = Image.fromarray(plot_input0[:, :, 0].astype(np.uint8))
+        # plot_target = Image.fromarray(plot_target.astype(np.uint8))
+        plot_target = Image.fromarray(plot_input0[:, :, 1].astype(np.uint8))
 
         plt.subplot(1, 2, 1)
         plt.imshow(plot_input)
         plt.subplot(1, 2, 2)
         plt.imshow(plot_target)
         plt.show()
+        break
 
 

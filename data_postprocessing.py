@@ -1,9 +1,7 @@
 import csv
-import time
 
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
 
 
 def process_image(row):
@@ -35,19 +33,6 @@ def process_image(row):
 
     result_image = closing_result * most_common_value
     result_flattened = result_image.flatten()
-
-    # if most_common_value == 2:
-    #     plt.subplot(1, 2, 1)
-    #     plt.imshow(input_array, cmap='gray')
-    #     plt.title(image_name)
-    #
-    #     plt.subplot(1, 2, 2)
-    #     plt.imshow(closing_result, cmap='gray')
-    #     plt.title('Closing Result')
-    #
-    #     plt.show()
-    #
-    #     time.sleep(3)
 
     output_row = [image_name] + result_flattened.tolist()
     return output_row

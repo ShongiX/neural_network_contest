@@ -1,9 +1,7 @@
 import argparse
-import time
 import numpy as np
 import optuna
 import torch
-from matplotlib import pyplot as plt
 from monai.networks.nets import BasicUNetPlusPlus
 from torch import nn
 from fastai.losses import DiceLoss, FocalLoss
@@ -137,13 +135,13 @@ def main(args):
 
     study = optuna.create_study(direction='minimize', sampler=optuna.samplers.TPESampler())
 
-    with tqdm(total=400) as progress_bar:  # Number of trials
+    with tqdm(total=400) as progress_bar:
         def update_progress_bar(study, trial):
             progress_bar.set_description(
-                f"Evaluating trial {trial.number}/{400}")  # Update description with current trial number
-            progress_bar.update(1)  # Update the progress bar
+                f"Evaluating trial {trial.number}/{400}")
+            progress_bar.update(1)
 
-        study.optimize(objective, n_trials=400, callbacks=[update_progress_bar])  # Number of trials
+        study.optimize(objective, n_trials=400, callbacks=[update_progress_bar])
 
     writer.close()
     best_params = study.best_params
